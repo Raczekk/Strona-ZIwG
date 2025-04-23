@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galeria 3D - Ścianki Wspinaczkowe</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      background: linear-gradient(to bottom right, #fefefe, #cce0ff);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-top: 20px;
+      color: #1a3d7c;
+      font-size: 2em;
+      text-transform: uppercase;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 20px;
+      gap: 15px;
+    }
+    .tile {
+      width: 200px;
+      height: 200px;
+      background: #fff;
+      border: 3px solid #1a3d7c;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a3d7c;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .tile:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+    .viewer-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      width: 90%;
+      max-width: 1200px;
+      margin-top: 20px;
+      background: #ffffffdd;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    #viewer {
+      width: 60%;
+      height: 50vh;
+      border: 2px solid #1a3d7c;
+      border-radius: 10px;
+      background: #f0f8ff;
+    }
+    .options {
+      width: 40%;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #f7fbff;
+      border-left: 2px solid #1a3d7c;
+      border-radius: 10px;
+    }
+    label, button {
+      font-size: 16px;
+      margin: 10px 0;
+      color: #1a3d7c;
+    }
+    input[type="color"] {
+      border: none;
+      width: 50px;
+      height: 30px;
+      cursor: pointer;
+    }
+    button {
+      background-color: #1a3d7c;
+      color: #fff;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #274b99;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
+</head>
+<body>
+  <h1>Ścianki Wspinaczkowe - kreator 3D</h1>
+  <div class="container" id="tiles-container">
+    <div class="tile" onclick="loadModel('models/sciana1.glb')">Model 1</div>
+    <div class="tile" onclick="loadModel('models/sciana2.glb')">Model 2</div>
+    <div class="tile" onclick="loadModel('models/sciana3.glb')">Model 3</div>
+    <div class="tile" onclick="loadModel('models/sciana4.glb')">Model 4</div>
+    <div class="tile" id="addModelTile" onclick="document.getElementById('fileInput').click()">+ Dodaj Model</div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".glb, .gltf" style="display: none;" onchange="handleFileUpload(event)">
+
+  <div class="viewer-container">
+    <div id="viewer"></div>
+    <div class="options">
+      <h2>Opcje</h2>
+      <label for="background-color">Kolor tła:</label>
+      <input type="color" id="background-color" value="#ffffff" oninput="changeBackgroundColor(this.value)">
+      <h3>Dodaj akcesorium:</h3>
+      <button onclick="addAccessory('models/hold1.glb')">Uchwyt 1</button>
+      <button onclick="addAccessory('models/hold2.glb')">Uchwyt 2</button>
+      <button onclick="addAccessory('models/hold3.glb')">Uchwyt 3</button>
+      <h3>Przesuń akcesorium:</h3>
+      <label>X: <input type="range" id="moveX" min="-5" max="5" step="0.1" oninput="moveAccessory()"></label>
+      <label>Y: <input type="range" id="moveY" min="-5" max="5" step="0.1" oninput="moveAccessory()"></label>
+      <label>Z: <input type="range" id="moveZ" min="-5" max="5" step="0.1" oninput="moveAccessory()"></label>
+      <h3>Skaluj akcesorium:</h3>
+      <label>Skala: <input type="range" id="scale" min="0.1" max="3" step="0.1" value="1" oninput="scaleAccessory()"></label>
+      <button onclick="exportSceneAsImage()">Zapisz scenę jako .JPG</button>
+      <button onclick="exportSceneAsGLB()">Zapisz scenę jako .GLB</button>
+    </div>
+  </div>
+
+  <script>
+    let scene, camera, renderer, controls, activeModel, activeAccessory;
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth * 0.6, window.innerHeight * 0.5);
+      document.getElementById('viewer').appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+      directionalLight.position.set(5, 10, 7).normalize();
+      scene.add(directionalLight);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      camera.position.set(0, 2, 5);
+      animate();
+    }
+
+    function loadModel(modelPath) {
+      while (scene.children.length > 2) {
+        scene.remove(scene.children[2]);
+      }
+      const loader = new THREE.GLTFLoader();
+      loader.load(modelPath, function (gltf) {
+        activeModel = gltf.scene;
+        scene.add(activeModel);
+      });
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const tileName = file.name.split('.')[0];
+      const newTile = document.createElement('div');
+      newTile.className = 'tile';
+      newTile.textContent = tileName;
+      newTile.onclick = () => loadModel(url);
+      const container = document.getElementById('tiles-container');
+      container.insertBefore(newTile, document.getElementById('addModelTile'));
+      loadModel(url);
+    }
+
+    function addAccessory(path) {
+      if (!activeModel) return;
+      const loader = new THREE.GLTFLoader();
+      loader.load(path, function (gltf) {
+        activeAccessory = gltf.scene;
+        activeModel.add(activeAccessory);
+      });
+    }
+
+    function moveAccessory() {
+      if (activeAccessory) {
+        activeAccessory.position.set(
+          parseFloat(document.getElementById('moveX').value),
+          parseFloat(document.getElementById('moveY').value),
+          parseFloat(document.getElementById('moveZ').value)
+        );
+      }
+    }
+
+    function scaleAccessory() {
+      if (activeAccessory) {
+        let scaleValue = parseFloat(document.getElementById('scale').value);
+        activeAccessory.scale.set(scaleValue, scaleValue, scaleValue);
+      }
+    }
+
+    function changeBackgroundColor(color) {
+      renderer.setClearColor(color);
+    }
+
+    function exportSceneAsImage() {
+      renderer.render(scene, camera);
+      const link = document.createElement('a');
+      link.download = 'scena.jpg';
+      link.href = renderer.domElement.toDataURL('image/jpeg');
+      link.click();
+    }
+
+    function exportSceneAsGLB() {
+      const exporter = new THREE.GLTFExporter();
+      exporter.parse(
+        scene,
+        function (result) {
+          const output = result;
+          const blob = new Blob([output], { type: 'application/octet-stream' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'scena.glb';
+          link.click();
+        },
+        { binary: true }
+      );
+    
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'scena.obl';
+      link.click();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
