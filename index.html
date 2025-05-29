@@ -27,6 +27,7 @@
       justify-content: center;
       padding: 20px;
       gap: 15px;
+      float: left;
     }
     .tile {
       width: 200px;
@@ -45,36 +46,35 @@
     }
     .tile:hover {
       transform: scale(1.05);
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
     }
     .viewer-container {
       display: flex;
       justify-content: center;
       align-items: flex-start;
       width: 90%;
-      max-width: 1200px;
       margin-top: 20px;
       background: #ffffffdd;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       border-radius: 10px;
       padding: 20px;
     }
     #viewer {
-      width: 60%;
-      height: 50vh;
       border: 2px solid #1a3d7c;
       border-radius: 10px;
       background: #f0f8ff;
+      float: left;
     }
     .options {
-      width: 40%;
+      width: 350px;
       padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
       background: #f7fbff;
-      border-left: 2px solid #1a3d7c;
+      border: 2px solid #1a3d7c;
       border-radius: 10px;
+      float: left;
     }
     label, button {
       font-size: 16px;
@@ -106,7 +106,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
 </head>
 <body>
-  <h1>Ścianki Wspinaczkowe - kreator 3D</h1>
+  <h1>Ścianki Wspinaczkowe - 3D</h1>
   <div class="container" id="tiles-container">
     <div class="tile" onclick="loadModel('models/sciana1.glb')">Model 1</div>
     <div class="tile" onclick="loadModel('models/sciana2.glb')">Model 2</div>
@@ -117,7 +117,6 @@
 
   <input type="file" id="fileInput" accept=".glb, .gltf" style="display: none;" onchange="handleFileUpload(event)">
 
-  <div class="viewer-container">
     <div id="viewer"></div>
     <div class="options">
       <h2>Opcje</h2>
@@ -136,7 +135,6 @@
       <button onclick="exportSceneAsImage()">Zapisz scenę jako .JPG</button>
       <button onclick="exportSceneAsGLB()">Zapisz scenę jako .GLB</button>
     </div>
-  </div>
 
   <script>
     let scene, camera, renderer, controls, activeModel, activeAccessory;
@@ -161,12 +159,16 @@
     }
 
     function loadModel(modelPath) {
-      while (scene.children.length > 2) {
-        scene.remove(scene.children[2]);
-      }
+      while (scene.children.length > 2) { scene.remove(scene.children[2]); }
       const loader = new THREE.GLTFLoader();
       loader.load(modelPath, function (gltf) {
         activeModel = gltf.scene;
+        activeModel.traverse(node => {
+          if (node.isMesh && node.material) {
+            node.material.side = THREE.DoubleSide;
+            node.material.needsUpdate = true;
+          }
+        });
         scene.add(activeModel);
       });
     }
@@ -190,6 +192,12 @@
       const loader = new THREE.GLTFLoader();
       loader.load(path, function (gltf) {
         activeAccessory = gltf.scene;
+        activeAccessory.traverse(node => {
+          if (node.isMesh && node.material) {
+            node.material.side = THREE.DoubleSide;
+            node.material.needsUpdate = true;
+          }
+        });
         activeModel.add(activeAccessory);
       });
     }
@@ -225,24 +233,13 @@
 
     function exportSceneAsGLB() {
       const exporter = new THREE.GLTFExporter();
-      exporter.parse(
-        scene,
-        function (result) {
-          const output = result;
-          const blob = new Blob([output], { type: 'application/octet-stream' });
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = 'scena.glb';
-          link.click();
-        },
-        { binary: true }
-      );
-    
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'scena.obl';
-      link.click();
+      exporter.parse(scene, function(result) {
+        const blob = new Blob([result], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'scena.glb';
+        link.click();
+      }, { binary: true });
     }
 
     function animate() {
